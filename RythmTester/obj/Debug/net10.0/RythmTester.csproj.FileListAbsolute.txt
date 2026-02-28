@@ -1,0 +1,14 @@
+E:\Picobrix\RythmTester\RythmTester\bin\Debug\net10.0\RythmTester.exe
+E:\Picobrix\RythmTester\RythmTester\bin\Debug\net10.0\RythmTester.deps.json
+E:\Picobrix\RythmTester\RythmTester\bin\Debug\net10.0\RythmTester.runtimeconfig.json
+E:\Picobrix\RythmTester\RythmTester\bin\Debug\net10.0\RythmTester.dll
+E:\Picobrix\RythmTester\RythmTester\bin\Debug\net10.0\RythmTester.pdb
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\RythmTester.GeneratedMSBuildEditorConfig.editorconfig
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\RythmTester.AssemblyInfoInputs.cache
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\RythmTester.AssemblyInfo.cs
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\RythmTester.csproj.CoreCompileInputs.cache
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\RythmTester.dll
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\refint\RythmTester.dll
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\RythmTester.pdb
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\RythmTester.genruntimeconfig.cache
+E:\Picobrix\RythmTester\RythmTester\obj\Debug\net10.0\ref\RythmTester.dll
