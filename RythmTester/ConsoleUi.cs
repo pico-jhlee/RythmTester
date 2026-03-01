@@ -4,13 +4,20 @@ internal static class ConsoleUi
 {
     public static void FitWindowToContent(params string[] lines)
     {
+        FitWindowToContent(1, 1, lines);
+    }
+
+    public static void FitWindowToContent(int minWidth, int minHeight, params string[] lines)
+    {
         int contentWidth = 1;
         for (int i = 0; i < lines.Length; i++)
         {
             contentWidth = Math.Max(contentWidth, GetDisplayWidth(lines[i]));
         }
 
-        EnsureConsoleSize(contentWidth + 2, lines.Length + 2);
+        int targetWidth = Math.Max(Math.Max(1, minWidth), contentWidth + 2);
+        int targetHeight = Math.Max(Math.Max(1, minHeight), lines.Length + 2);
+        EnsureConsoleSize(targetWidth, targetHeight);
     }
 
     public static void EnsureConsoleSize(int width, int height)

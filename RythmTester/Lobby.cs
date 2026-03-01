@@ -63,9 +63,6 @@ internal static class Lobby
                 Settings.Run(state);
                 return false;
             case 2:
-                string[] exitLines = ["게임을 종료합니다."];
-                ConsoleUi.FitWindowToContent(exitLines);
-                ConsoleUi.RenderFrame(exitLines);
                 return true;
             default:
                 return false;
