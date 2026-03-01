@@ -2,28 +2,61 @@ namespace RythmTester;
 
 internal static class Settings
 {
+    private enum SettingsTab
+    {
+        System,
+        LevelDesign
+    }
+
+    private static readonly (int Width, int Height)[] ResolutionPresets =
+    [
+        (100, 30),
+        (160, 48)
+    ];
+
+    private static readonly int[] FpsOptions = [10, 20, 30, 60, 75, 90, 120, 144, 165, 240, 360, 400];
+
     public static void Run(GameState state)
     {
-        int selectedIndex = 0;
+        SettingsTab activeTab = SettingsTab.System;
+        int systemSelectedIndex = 0;
+        int levelDesignSelectedIndex = 0;
 
         while (true)
         {
-            Render(state, selectedIndex);
+            Render(state, activeTab, systemSelectedIndex, levelDesignSelectedIndex);
 
             ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
             switch (keyInfo.Key)
             {
                 case ConsoleKey.UpArrow:
-                    selectedIndex = Math.Max(0, selectedIndex - 1);
+                    if (activeTab == SettingsTab.System)
+                    {
+                        systemSelectedIndex = Math.Max(0, systemSelectedIndex - 1);
+                    }
+                    else
+                    {
+                        levelDesignSelectedIndex = Math.Max(0, levelDesignSelectedIndex - 1);
+                    }
                     break;
                 case ConsoleKey.DownArrow:
-                    selectedIndex = Math.Min(6, selectedIndex + 1);
+                    if (activeTab == SettingsTab.System)
+                    {
+                        systemSelectedIndex = Math.Min(1, systemSelectedIndex + 1);
+                    }
+                    else
+                    {
+                        levelDesignSelectedIndex = Math.Min(3, levelDesignSelectedIndex + 1);
+                    }
                     break;
                 case ConsoleKey.LeftArrow:
-                    ChangeValue(state, selectedIndex, -1);
+                    ChangeValue(state, activeTab, activeTab == SettingsTab.System ? systemSelectedIndex : levelDesignSelectedIndex, -1);
                     break;
                 case ConsoleKey.RightArrow:
-                    ChangeValue(state, selectedIndex, 1);
+                    ChangeValue(state, activeTab, activeTab == SettingsTab.System ? systemSelectedIndex : levelDesignSelectedIndex, 1);
+                    break;
+                case ConsoleKey.Tab:
+                    activeTab = activeTab == SettingsTab.System ? SettingsTab.LevelDesign : SettingsTab.System;
                     break;
                 case ConsoleKey.Escape:
                     return;
@@ -31,19 +64,33 @@ internal static class Settings
         }
     }
 
-    private static void Render(GameState state, int selectedIndex)
+    private static void Render(GameState state, SettingsTab activeTab, int systemSelectedIndex, int levelDesignSelectedIndex)
     {
+        string tabLine = activeTab == SettingsTab.System
+            ? "[System] | Level Design"
+            : "System | [Level Design]";
+
+        string[] settingLines = activeTab == SettingsTab.System
+            ?
+            [
+                $"{GetCursorPrefix(systemSelectedIndex, 0)}Resolution: {state.ResolutionWidth} X {state.ResolutionHeight}",
+                $"{GetCursorPrefix(systemSelectedIndex, 1)}FPS: {state.Fps}"
+            ]
+            :
+            [
+                $"{GetCursorPrefix(levelDesignSelectedIndex, 0)}Note Speed: {state.NoteSpeed}",
+                $"{GetCursorPrefix(levelDesignSelectedIndex, 1)}BPM: {state.Bpm}",
+                $"{GetCursorPrefix(levelDesignSelectedIndex, 2)}Perfect Judge(ms): {state.PerfectJudge}",
+                $"{GetCursorPrefix(levelDesignSelectedIndex, 3)}Miss Judge(ms): {state.MissJudge}"
+            ];
+
         string[] lines =
         [
-            $"{GetCursorPrefix(selectedIndex, 0)}Perfect Judge(ms): {state.PerfectJudge}",
-            $"{GetCursorPrefix(selectedIndex, 1)}Miss Judge(ms): {state.MissJudge}",
-            $"{GetCursorPrefix(selectedIndex, 2)}Note Speed(ms): {state.NoteSpeed}",
-            $"{GetCursorPrefix(selectedIndex, 3)}BPM: {state.Bpm}",
-            $"{GetCursorPrefix(selectedIndex, 4)}FPS: {state.Fps}",
-            $"{GetCursorPrefix(selectedIndex, 5)}Resolution Width: {state.ResolutionWidth}",
-            $"{GetCursorPrefix(selectedIndex, 6)}Resolution Height: {state.ResolutionHeight}",
+            tabLine,
             string.Empty,
-            "Up/Down: 커서 이동, Left/Right: 값 변경, Esc: 로비 복귀"
+            ..settingLines,
+            string.Empty,
+            "Tab: 탭 전환, Up/Down: 커서 이동, Left/Right: 값 변경, Esc: 로비 복귀"
         ];
 
         ConsoleUi.FitWindowToContent(lines);
@@ -55,30 +102,37 @@ internal static class Settings
         return selectedIndex == rowIndex ? "> " : "  ";
     }
 
-    private static void ChangeValue(GameState state, int selectedIndex, int delta)
+    private static void ChangeValue(GameState state, SettingsTab activeTab, int selectedIndex, int delta)
+    {
+        if (activeTab == SettingsTab.System)
+        {
+            ChangeSystemValue(state, selectedIndex, delta);
+            return;
+        }
+
+        ChangeLevelDesignValue(state, selectedIndex, delta);
+    }
+
+    private static void ChangeSystemValue(GameState state, int selectedIndex, int delta)
     {
         switch (selectedIndex)
         {
             case 0:
-                state.PerfectJudge = Math.Max(1, state.PerfectJudge + delta);
-                state.MissJudge = Math.Max(state.MissJudge, state.PerfectJudge + 1);
+                int presetIndex = FindResolutionPresetIndex(state.ResolutionWidth, state.ResolutionHeight);
+
+                if (delta < 0)
+                {
+                    presetIndex = Math.Max(0, presetIndex - 1);
+                }
+                else if (delta > 0)
+                {
+                    presetIndex = Math.Min(ResolutionPresets.Length - 1, presetIndex + 1);
+                }
+
+                (state.ResolutionWidth, state.ResolutionHeight) = ResolutionPresets[presetIndex];
                 break;
             case 1:
-                state.MissJudge = Math.Max(state.PerfectJudge + 1, state.MissJudge + delta);
-                break;
-            case 2:
-                state.NoteSpeed = Math.Clamp(state.NoteSpeed + delta * 100, 100, 4800);
-                break;
-            case 3:
-                state.Bpm = Math.Max(1, state.Bpm + delta);
-                break;
-            case 4:
-                int[] fpsOptions = [10, 20, 30, 60, 144];
-                int currentIndex = Array.IndexOf(fpsOptions, state.Fps);
-                if (currentIndex < 0)
-                {
-                    currentIndex = 1;
-                }
+                int currentIndex = FindFpsOptionIndex(state.Fps);
 
                 if (delta < 0)
                 {
@@ -86,17 +140,43 @@ internal static class Settings
                 }
                 else if (delta > 0)
                 {
-                    currentIndex = Math.Min(fpsOptions.Length - 1, currentIndex + 1);
+                    currentIndex = Math.Min(FpsOptions.Length - 1, currentIndex + 1);
                 }
 
-                state.Fps = fpsOptions[currentIndex];
-                break;
-            case 5:
-                state.ResolutionWidth = Math.Clamp(state.ResolutionWidth + delta * 10, 40, 160);
-                break;
-            case 6:
-                state.ResolutionHeight = Math.Clamp(state.ResolutionHeight + delta * 2, 10, 48);
+                state.Fps = FpsOptions[currentIndex];
                 break;
         }
+    }
+
+    private static void ChangeLevelDesignValue(GameState state, int selectedIndex, int delta)
+    {
+        switch (selectedIndex)
+        {
+            case 0:
+                state.NoteSpeed = Math.Clamp(state.NoteSpeed + delta, 1, 10);
+                break;
+            case 1:
+                state.Bpm = Math.Max(1, state.Bpm + delta);
+                break;
+            case 2:
+                state.PerfectJudge = Math.Max(1, state.PerfectJudge + delta);
+                state.MissJudge = Math.Max(state.MissJudge, state.PerfectJudge + 1);
+                break;
+            case 3:
+                state.MissJudge = Math.Max(state.PerfectJudge + 1, state.MissJudge + delta);
+                break;
+        }
+    }
+
+    private static int FindResolutionPresetIndex(int width, int height)
+    {
+        int index = Array.FindIndex(ResolutionPresets, preset => preset.Width == width && preset.Height == height);
+        return index < 0 ? 0 : index;
+    }
+
+    private static int FindFpsOptionIndex(int expect)
+    {
+        int index = Array.FindIndex(FpsOptions, fps => fps == expect);
+        return index < 0 ? 0 : index;
     }
 }
