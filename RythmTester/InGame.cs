@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace RythmTester;
@@ -27,112 +28,151 @@ internal static class InGame
     {
         List<BeatNote> beats = new();
         Stopwatch stopwatch = Stopwatch.StartNew();
+        ConcurrentQueue<InputEvent> inputQueue = new();
+        int inputThreadStopRequested = 0;
+        Thread inputThread = StartInputThread(
+            stopwatch,
+            inputQueue,
+            () => Volatile.Read(ref inputThreadStopRequested) == 1);
+
         double beatMs = 60000.0 / state.Bpm;
         double nextBeatMs = 2000.0;
-        double nextBeepMs = 2000.0;
 
         int score = 0;
         int combo = 0;
         int maxCombo = 0;
+        int hp = 1000;
         double nextFrameAtMs = 0;
 
         string lastJudgeText = string.Empty;
         double lastJudgeEndMs = -1;
 
-        while (true)
+        try
         {
-            double nowMs = stopwatch.Elapsed.TotalMilliseconds;
-            double travelTimeMs = state.NoteSpeed;
-            int renderWidth = Math.Clamp(Console.WindowWidth - 1, 1, 160);
-            int renderHeight = Math.Clamp(Console.WindowHeight, 1, 48);
-
-            while (nowMs + travelTimeMs >= nextBeatMs)
+            while (true)
             {
-                beats.Add(new BeatNote(nextBeatMs));
-                nextBeatMs += beatMs;
-            }
+                double nowMs = stopwatch.Elapsed.TotalMilliseconds;
+                double travelTimeMs = state.NoteSpeed;
+                int renderWidth = Math.Clamp(Console.WindowWidth - 1, 1, 160);
+                int renderHeight = Math.Clamp(Console.WindowHeight, 1, 48);
 
-            while (nowMs >= nextBeepMs)
-            {
-                QueueBeatBeep();
-                nextBeepMs += beatMs;
-            }
-
-            while (Console.KeyAvailable)
-            {
-                ConsoleKey key = Console.ReadKey(intercept: true).Key;
-
-                if (key == ConsoleKey.Escape)
+                while (nowMs + travelTimeMs >= nextBeatMs)
                 {
-                    return;
+                    beats.Add(new BeatNote(nextBeatMs));
+                    nextBeatMs += beatMs;
                 }
 
-                if (TryJudgeBeat(beats, nowMs, state, ref score, ref combo, ref maxCombo, out string judgeText))
+                while (inputQueue.TryDequeue(out InputEvent input))
                 {
-                    lastJudgeText = judgeText;
-                    lastJudgeEndMs = nowMs + 500;
-                }
-            }
+                    if (input.Key == ConsoleKey.Escape)
+                    {
+                        return;
+                    }
 
-            foreach (BeatNote beat in beats)
-            {
-                if (beat.Judged)
+                    if (TryJudgeBeat(
+                        beats,
+                        input.AtMs,
+                        state,
+                        ref score,
+                        ref combo,
+                        ref maxCombo,
+                        out string judgeText,
+                        out JudgeResult judgeResult,
+                        out int perfectHealAmount))
+                    {
+                        if (judgeResult == JudgeResult.Perfect)
+                        {
+                            hp = Math.Min(1000, hp + perfectHealAmount);
+                        }
+                        else if (judgeResult == JudgeResult.Miss)
+                        {
+                            hp = Math.Max(0, hp - 100);
+                            if (hp == 0)
+                            {
+                                return;
+                            }
+                        }
+
+                        lastJudgeText = judgeText;
+                        lastJudgeEndMs = nowMs + 500;
+                    }
+                }
+
+                foreach (BeatNote beat in beats)
                 {
-                    continue;
+                    if (beat.Judged)
+                    {
+                        continue;
+                    }
+
+                    if (nowMs - beat.TargetMs > state.MissJudge)
+                    {
+                        beat.Judged = true;
+                        combo = 0;
+                        hp = Math.Max(0, hp - 100);
+                        if (hp == 0)
+                        {
+                            return;
+                        }
+                        lastJudgeText = "MISS";
+                        lastJudgeEndMs = nowMs + 500;
+                    }
                 }
 
-                if (nowMs - beat.TargetMs > state.MissJudge)
+                beats.RemoveAll(beat => beat.Judged && nowMs - beat.TargetMs > 250);
+
+                RenderOneButtonGame(
+                    beats,
+                    nowMs,
+                    score,
+                    combo,
+                    maxCombo,
+                    hp,
+                    lastJudgeText,
+                    lastJudgeEndMs,
+                    travelTimeMs,
+                    renderWidth,
+                    renderHeight,
+                    state);
+
+                double frameDurationMs = 1000.0 / Math.Clamp(state.Fps, 15, 240);
+                if (nextFrameAtMs <= nowMs)
                 {
-                    beat.Judged = true;
-                    combo = 0;
-                    lastJudgeText = "MISS";
-                    lastJudgeEndMs = nowMs + 500;
+                    nextFrameAtMs = nowMs + frameDurationMs;
                 }
+                else
+                {
+                    nextFrameAtMs += frameDurationMs;
+                }
+
+                WaitUntilFrame(stopwatch, nextFrameAtMs);
             }
-
-            beats.RemoveAll(beat => beat.Judged && nowMs - beat.TargetMs > 250);
-
-            RenderOneButtonGame(
-                beats,
-                nowMs,
-                score,
-                combo,
-                maxCombo,
-                lastJudgeText,
-                lastJudgeEndMs,
-                travelTimeMs,
-                renderWidth,
-                renderHeight,
-                state);
-
-            double frameDurationMs = 1000.0 / Math.Clamp(state.Fps, 15, 240);
-            if (nextFrameAtMs <= nowMs)
-            {
-                nextFrameAtMs = nowMs + frameDurationMs;
-            }
-            else
-            {
-                nextFrameAtMs += frameDurationMs;
-            }
-
-            WaitUntilFrame(stopwatch, nextFrameAtMs);
+        }
+        finally
+        {
+            Volatile.Write(ref inputThreadStopRequested, 1);
+            inputThread.Join(millisecondsTimeout: 200);
         }
     }
 
     private static bool TryJudgeBeat(
         List<BeatNote> beats,
-        double nowMs,
+        double inputAtMs,
         GameState state,
         ref int score,
         ref int combo,
         ref int maxCombo,
-        out string judgeText)
+        out string judgeText,
+        out JudgeResult judgeResult,
+        out int perfectHealAmount)
     {
         judgeText = string.Empty;
+        judgeResult = JudgeResult.None;
+        perfectHealAmount = 0;
 
         BeatNote? target = beats
             .Where(beat => !beat.Judged)
-            .OrderBy(beat => Math.Abs(nowMs - beat.TargetMs))
+            .OrderBy(beat => Math.Abs(inputAtMs - beat.TargetMs))
             .FirstOrDefault();
 
         if (target is null)
@@ -140,14 +180,14 @@ internal static class InGame
             return false;
         }
 
-        double diff = Math.Abs(nowMs - target.TargetMs);
+        double diff = Math.Abs(inputAtMs - target.TargetMs);
         if (diff > state.MissJudge)
         {
             return false;
         }
 
         target.Judged = true;
-        int timingOffsetMs = (int)Math.Round(target.TargetMs - nowMs);
+        int timingOffsetMs = (int)Math.Round(target.TargetMs - inputAtMs);
         string offsetText = FormatTimingOffset(timingOffsetMs);
 
         if (diff <= state.PerfectJudge)
@@ -155,13 +195,54 @@ internal static class InGame
             combo++;
             maxCombo = Math.Max(maxCombo, combo);
             score += 1000 + combo * 3;
+            int timingDiffMs = (int)Math.Round(diff);
+            perfectHealAmount = Math.Max(0, state.PerfectJudge - timingDiffMs);
             judgeText = $"PERFECT {offsetText}";
+            judgeResult = JudgeResult.Perfect;
             return true;
         }
 
         combo = 0;
         judgeText = $"MISS {offsetText}";
+        judgeResult = JudgeResult.Miss;
         return true;
+    }
+
+    private static Thread StartInputThread(
+        Stopwatch stopwatch,
+        ConcurrentQueue<InputEvent> inputQueue,
+        Func<bool> isStopRequested)
+    {
+        Thread thread = new(() =>
+        {
+            while (!isStopRequested())
+            {
+                try
+                {
+                    if (Console.KeyAvailable)
+                    {
+                        ConsoleKey key = Console.ReadKey(intercept: true).Key;
+                        double atMs = stopwatch.Elapsed.TotalMilliseconds;
+                        inputQueue.Enqueue(new InputEvent(key, atMs));
+                        QueueBeatBeep();
+                    }
+                    else
+                    {
+                        Thread.Sleep(1);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Input stream is unavailable (e.g. redirected); stop input loop.
+                    return;
+                }
+            }
+        });
+
+        thread.IsBackground = true;
+        thread.Name = "InGameInput";
+        thread.Start();
+        return thread;
     }
 
     private static void RenderOneButtonGame(
@@ -170,6 +251,7 @@ internal static class InGame
         int score,
         int combo,
         int maxCombo,
+        int hp,
         string lastJudgeText,
         double lastJudgeEndMs,
         double travelTimeMs,
@@ -194,7 +276,7 @@ internal static class InGame
 
         char[][] grid = CreateGrid(width, height);
 
-        DrawText(grid, 0, 0, $"Score: {score}   Combo: {combo}   Max Combo: {maxCombo}");
+        DrawText(grid, 0, 0, $"Score: {score}   Combo: {combo}   Max Combo: {maxCombo}   HP: {hp}");
         DrawText(grid, Math.Max(0, width - 31), 0, $"BPM:{state.Bpm}  Speed:{state.NoteSpeed}  FPS:{state.Fps}");
         DrawText(grid, 0, 1, "ANY KEY: Hit Beat   ESC: Lobby");
 
@@ -355,5 +437,24 @@ internal static class InGame
             TargetMs = targetMs;
             Judged = false;
         }
+    }
+
+    private readonly struct InputEvent
+    {
+        public ConsoleKey Key { get; }
+        public double AtMs { get; }
+
+        public InputEvent(ConsoleKey key, double atMs)
+        {
+            Key = key;
+            AtMs = atMs;
+        }
+    }
+
+    private enum JudgeResult
+    {
+        None,
+        Perfect,
+        Miss
     }
 }
