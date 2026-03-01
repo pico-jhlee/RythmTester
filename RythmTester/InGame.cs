@@ -52,7 +52,7 @@ internal static class InGame
             while (true)
             {
                 double nowMs = stopwatch.Elapsed.TotalMilliseconds;
-                double travelTimeMs = state.NoteSpeed;
+                double travelTimeMs = GetTravelTimeMs(state.NoteSpeed);
                 int renderWidth = Math.Clamp(Console.WindowWidth - 1, 1, 160);
                 int renderHeight = Math.Clamp(Console.WindowHeight, 1, 48);
 
@@ -374,10 +374,8 @@ internal static class InGame
 
     private static double GetTravelTimeMs(int noteSpeed)
     {
-        double normalized = (noteSpeed - 1) / 9.0;
-        const double maxTravelMs = 4800;
-        const double minTravelMs = 180;
-        return maxTravelMs - ((maxTravelMs - minTravelMs) * normalized);
+        const double defaultTravelMs = 5000;
+        return defaultTravelMs / noteSpeed;
     }
 
     private static void QueueBeatBeep()

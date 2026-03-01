@@ -15,7 +15,7 @@ internal sealed class GameState
 {
     public int PerfectJudge { get; set; } = 53;
     public int MissJudge { get; set; } = 90;
-    public int NoteSpeed { get; set; } = 1000;
+    public int NoteSpeed { get; set; } = 5;
     public int Bpm { get; set; } = 60;
     public int Fps { get; set; } = 60;
     public int ResolutionWidth { get; set; } = 100;
