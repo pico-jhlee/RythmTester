@@ -6,7 +6,7 @@ internal class Program
     {
         GameState state = new();
 
-        Entry.Run();
+        Entry.Run(state);
         Lobby.Run(state);
     }
 }

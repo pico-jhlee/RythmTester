@@ -32,33 +32,61 @@ internal static class Settings
                 case ConsoleKey.UpArrow:
                     if (activeTab == SettingsTab.System)
                     {
-                        systemSelectedIndex = Math.Max(0, systemSelectedIndex - 1);
+                        int nextIndex = Math.Max(0, systemSelectedIndex - 1);
+                        if (nextIndex != systemSelectedIndex)
+                        {
+                            systemSelectedIndex = nextIndex;
+                            ConsoleSound.QueueSelectionBeep();
+                        }
                     }
                     else
                     {
-                        levelDesignSelectedIndex = Math.Max(0, levelDesignSelectedIndex - 1);
+                        int nextIndex = Math.Max(0, levelDesignSelectedIndex - 1);
+                        if (nextIndex != levelDesignSelectedIndex)
+                        {
+                            levelDesignSelectedIndex = nextIndex;
+                            ConsoleSound.QueueSelectionBeep();
+                        }
                     }
                     break;
                 case ConsoleKey.DownArrow:
                     if (activeTab == SettingsTab.System)
                     {
-                        systemSelectedIndex = Math.Min(1, systemSelectedIndex + 1);
+                        int nextIndex = Math.Min(1, systemSelectedIndex + 1);
+                        if (nextIndex != systemSelectedIndex)
+                        {
+                            systemSelectedIndex = nextIndex;
+                            ConsoleSound.QueueSelectionBeep();
+                        }
                     }
                     else
                     {
-                        levelDesignSelectedIndex = Math.Min(3, levelDesignSelectedIndex + 1);
+                        int nextIndex = Math.Min(3, levelDesignSelectedIndex + 1);
+                        if (nextIndex != levelDesignSelectedIndex)
+                        {
+                            levelDesignSelectedIndex = nextIndex;
+                            ConsoleSound.QueueSelectionBeep();
+                        }
                     }
                     break;
                 case ConsoleKey.LeftArrow:
-                    ChangeValue(state, activeTab, activeTab == SettingsTab.System ? systemSelectedIndex : levelDesignSelectedIndex, -1);
+                    if (ChangeValue(state, activeTab, activeTab == SettingsTab.System ? systemSelectedIndex : levelDesignSelectedIndex, -1))
+                    {
+                        ConsoleSound.QueueSelectionBeep();
+                    }
                     break;
                 case ConsoleKey.RightArrow:
-                    ChangeValue(state, activeTab, activeTab == SettingsTab.System ? systemSelectedIndex : levelDesignSelectedIndex, 1);
+                    if (ChangeValue(state, activeTab, activeTab == SettingsTab.System ? systemSelectedIndex : levelDesignSelectedIndex, 1))
+                    {
+                        ConsoleSound.QueueSelectionBeep();
+                    }
                     break;
                 case ConsoleKey.Tab:
+                    ConsoleSound.QueueSelectionBeep();
                     activeTab = activeTab == SettingsTab.System ? SettingsTab.LevelDesign : SettingsTab.System;
                     break;
                 case ConsoleKey.Escape:
+                    ConsoleSound.QueueSelectionBeep();
                     return;
             }
         }
@@ -93,7 +121,7 @@ internal static class Settings
             "Tab: 탭 전환, Up/Down: 커서 이동, Left/Right: 값 변경, Esc: 로비 복귀"
         ];
 
-        ConsoleUi.FitWindowToContent(lines);
+        ConsoleUi.EnsureConsoleSize(state.ResolutionWidth, state.ResolutionHeight);
         ConsoleUi.RenderFrame(lines);
     }
 
@@ -102,22 +130,23 @@ internal static class Settings
         return selectedIndex == rowIndex ? "> " : "  ";
     }
 
-    private static void ChangeValue(GameState state, SettingsTab activeTab, int selectedIndex, int delta)
+    private static bool ChangeValue(GameState state, SettingsTab activeTab, int selectedIndex, int delta)
     {
         if (activeTab == SettingsTab.System)
         {
-            ChangeSystemValue(state, selectedIndex, delta);
-            return;
+            return ChangeSystemValue(state, selectedIndex, delta);
         }
 
-        ChangeLevelDesignValue(state, selectedIndex, delta);
+        return ChangeLevelDesignValue(state, selectedIndex, delta);
     }
 
-    private static void ChangeSystemValue(GameState state, int selectedIndex, int delta)
+    private static bool ChangeSystemValue(GameState state, int selectedIndex, int delta)
     {
         switch (selectedIndex)
         {
             case 0:
+                int previousWidth = state.ResolutionWidth;
+                int previousHeight = state.ResolutionHeight;
                 int presetIndex = FindResolutionPresetIndex(state.ResolutionWidth, state.ResolutionHeight);
 
                 if (delta < 0)
@@ -130,8 +159,9 @@ internal static class Settings
                 }
 
                 (state.ResolutionWidth, state.ResolutionHeight) = ResolutionPresets[presetIndex];
-                break;
+                return state.ResolutionWidth != previousWidth || state.ResolutionHeight != previousHeight;
             case 1:
+                int previousFps = state.Fps;
                 int currentIndex = FindFpsOptionIndex(state.Fps);
 
                 if (delta < 0)
@@ -144,28 +174,37 @@ internal static class Settings
                 }
 
                 state.Fps = FpsOptions[currentIndex];
-                break;
+                return state.Fps != previousFps;
         }
+
+        return false;
     }
 
-    private static void ChangeLevelDesignValue(GameState state, int selectedIndex, int delta)
+    private static bool ChangeLevelDesignValue(GameState state, int selectedIndex, int delta)
     {
         switch (selectedIndex)
         {
             case 0:
-                state.NoteSpeed = Math.Clamp(state.NoteSpeed + delta, 1, 10);
-                break;
+                int previousNoteSpeed = state.NoteSpeed;
+                state.NoteSpeed = Math.Clamp(state.NoteSpeed + delta, 1, 20);
+                return state.NoteSpeed != previousNoteSpeed;
             case 1:
+                int previousBpm = state.Bpm;
                 state.Bpm = Math.Max(1, state.Bpm + delta);
-                break;
+                return state.Bpm != previousBpm;
             case 2:
+                int previousPerfectJudge = state.PerfectJudge;
+                int previousMissJudgeForPerfectChange = state.MissJudge;
                 state.PerfectJudge = Math.Max(1, state.PerfectJudge + delta);
                 state.MissJudge = Math.Max(state.MissJudge, state.PerfectJudge + 1);
-                break;
+                return state.PerfectJudge != previousPerfectJudge || state.MissJudge != previousMissJudgeForPerfectChange;
             case 3:
+                int previousMissJudge = state.MissJudge;
                 state.MissJudge = Math.Max(state.PerfectJudge + 1, state.MissJudge + delta);
-                break;
+                return state.MissJudge != previousMissJudge;
         }
+
+        return false;
     }
 
     private static int FindResolutionPresetIndex(int width, int height)

@@ -8,31 +8,46 @@ internal static class Lobby
 
         while (true)
         {
-            Render(selectedIndex);
+            Render(state, selectedIndex);
 
             ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
             switch (keyInfo.Key)
             {
                 case ConsoleKey.UpArrow:
-                    selectedIndex = Math.Max(0, selectedIndex - 1);
+                    int upNextIndex = Math.Max(0, selectedIndex - 1);
+                    if (upNextIndex != selectedIndex)
+                    {
+                        selectedIndex = upNextIndex;
+                        ConsoleSound.QueueSelectionBeep();
+                    }
                     break;
                 case ConsoleKey.DownArrow:
-                    selectedIndex = Math.Min(2, selectedIndex + 1);
+                    int downNextIndex = Math.Min(2, selectedIndex + 1);
+                    if (downNextIndex != selectedIndex)
+                    {
+                        selectedIndex = downNextIndex;
+                        ConsoleSound.QueueSelectionBeep();
+                    }
                     break;
                 case ConsoleKey.Enter:
+                    ConsoleSound.QueueSelectionBeep();
                     if (HandleSelection(state, selectedIndex))
                     {
                         return;
                     }
                     break;
                 case ConsoleKey.Escape:
-                    selectedIndex = 2;
+                    if (selectedIndex != 2)
+                    {
+                        selectedIndex = 2;
+                        ConsoleSound.QueueSelectionBeep();
+                    }
                     break;
             }
         }
     }
 
-    private static void Render(int selectedIndex)
+    private static void Render(GameState state, int selectedIndex)
     {
         string[] lines =
         [
@@ -43,7 +58,7 @@ internal static class Lobby
             "Up/Down: 커서 이동, Enter: 선택"
         ];
 
-        ConsoleUi.FitWindowToContent(lines);
+        ConsoleUi.EnsureConsoleSize(state.ResolutionWidth, state.ResolutionHeight);
         ConsoleUi.RenderFrame(lines);
     }
 

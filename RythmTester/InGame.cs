@@ -224,7 +224,7 @@ internal static class InGame
                         ConsoleKey key = Console.ReadKey(intercept: true).Key;
                         double atMs = stopwatch.Elapsed.TotalMilliseconds;
                         inputQueue.Enqueue(new InputEvent(key, atMs));
-                        QueueBeatBeep();
+                        ConsoleSound.QueueBeatBeep();
                     }
                     else
                     {
@@ -376,23 +376,6 @@ internal static class InGame
     {
         const double defaultTravelMs = 5000;
         return defaultTravelMs / noteSpeed;
-    }
-
-    private static void QueueBeatBeep()
-    {
-        _ = Task.Run(PlayBeatBeep);
-    }
-
-    private static void PlayBeatBeep()
-    {
-        try
-        {
-            Console.Beep(1400, 20);
-        }
-        catch (PlatformNotSupportedException)
-        {
-            Console.Write("\a");
-        }
     }
 
     private static void WaitUntilFrame(Stopwatch stopwatch, double targetFrameAtMs)
