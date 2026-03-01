@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 
 namespace RythmTester;
 
@@ -7,6 +6,8 @@ internal static class InGame
 {
     public static void Run(GameState state)
     {
+        ConsoleUi.EnsureConsoleSize(state.ResolutionWidth, state.ResolutionHeight);
+
         bool previousCursorVisible = Console.CursorVisible;
         Console.CursorVisible = false;
 
@@ -18,7 +19,7 @@ internal static class InGame
         {
             Console.CursorVisible = previousCursorVisible;
             Console.ResetColor();
-            Console.Clear();
+            Console.SetCursorPosition(0, 0);
         }
     }
 
@@ -26,9 +27,6 @@ internal static class InGame
     {
         List<BeatNote> beats = new();
         Stopwatch stopwatch = Stopwatch.StartNew();
-        int renderWidth = Math.Clamp(Console.WindowWidth, 70, 160);
-        int renderHeight = Math.Clamp(Console.WindowHeight, 20, 48);
-
         double beatMs = 60000.0 / state.Bpm;
         double nextBeatMs = 2000.0;
         double nextBeepMs = 2000.0;
@@ -45,6 +43,8 @@ internal static class InGame
         {
             double nowMs = stopwatch.Elapsed.TotalMilliseconds;
             double travelTimeMs = state.NoteSpeed;
+            int renderWidth = Math.Clamp(Console.WindowWidth - 1, 1, 160);
+            int renderHeight = Math.Clamp(Console.WindowHeight, 1, 48);
 
             while (nowMs + travelTimeMs >= nextBeatMs)
             {
@@ -54,7 +54,7 @@ internal static class InGame
 
             while (nowMs >= nextBeepMs)
             {
-                PlayBeatBeep();
+                QueueBeatBeep();
                 nextBeepMs += beatMs;
             }
 
@@ -115,11 +115,7 @@ internal static class InGame
                 nextFrameAtMs += frameDurationMs;
             }
 
-            double remainMs = nextFrameAtMs - stopwatch.Elapsed.TotalMilliseconds;
-            if (remainMs > 1)
-            {
-                Thread.Sleep((int)remainMs);
-            }
+            WaitUntilFrame(stopwatch, nextFrameAtMs);
         }
     }
 
@@ -181,6 +177,13 @@ internal static class InGame
         int height,
         GameState state)
     {
+        if (width < 40 || height < 10)
+        {
+            Console.SetCursorPosition(0, 0);
+            Console.Write("Console window too small. Resize bigger (>= 40x10).");
+            return;
+        }
+
         int playTop = 4;
         int playBottom = height - 5;
         int judgeY = (playTop + playBottom) / 2;
@@ -233,18 +236,12 @@ internal static class InGame
             DrawText(grid, Math.Max(0, (width - lastJudgeText.Length) / 2), 2, lastJudgeText);
         }
 
-        StringBuilder frame = new();
         for (int y = 0; y < height; y++)
         {
-            frame.Append(grid[y]);
-            if (y < height - 1)
-            {
-                frame.Append('\n');
-            }
+            Console.SetCursorPosition(0, y);
+            Console.Write(grid[y], 0, grid[y].Length);
         }
-
         Console.SetCursorPosition(0, 0);
-        Console.Write(frame.ToString());
     }
 
     private static char[][] CreateGrid(int width, int height)
@@ -301,6 +298,11 @@ internal static class InGame
         return maxTravelMs - ((maxTravelMs - minTravelMs) * normalized);
     }
 
+    private static void QueueBeatBeep()
+    {
+        _ = Task.Run(PlayBeatBeep);
+    }
+
     private static void PlayBeatBeep()
     {
         try
@@ -310,6 +312,26 @@ internal static class InGame
         catch (PlatformNotSupportedException)
         {
             Console.Write("\a");
+        }
+    }
+
+    private static void WaitUntilFrame(Stopwatch stopwatch, double targetFrameAtMs)
+    {
+        while (true)
+        {
+            double remainMs = targetFrameAtMs - stopwatch.Elapsed.TotalMilliseconds;
+            if (remainMs <= 0)
+            {
+                return;
+            }
+
+            if (remainMs >= 20)
+            {
+                Thread.Sleep((int)(remainMs - 10));
+                continue;
+            }
+
+            Thread.SpinWait(256);
         }
     }
 

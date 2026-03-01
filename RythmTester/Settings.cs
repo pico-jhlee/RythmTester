@@ -17,7 +17,7 @@ internal static class Settings
                     selectedIndex = Math.Max(0, selectedIndex - 1);
                     break;
                 case ConsoleKey.DownArrow:
-                    selectedIndex = Math.Min(4, selectedIndex + 1);
+                    selectedIndex = Math.Min(6, selectedIndex + 1);
                     break;
                 case ConsoleKey.LeftArrow:
                     ChangeValue(state, selectedIndex, -1);
@@ -33,14 +33,21 @@ internal static class Settings
 
     private static void Render(GameState state, int selectedIndex)
     {
-        Console.Clear();
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 0)}Perfect Judge(ms): {state.PerfectJudge}");
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 1)}Miss Judge(ms): {state.MissJudge}");
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 2)}Note Speed(ms): {state.NoteSpeed}");
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 3)}BPM: {state.Bpm}");
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 4)}FPS: {state.Fps}");
-        Console.WriteLine();
-        Console.WriteLine("Up/Down: 커서 이동, Left/Right: 값 변경, Esc: 로비 복귀");
+        string[] lines =
+        [
+            $"{GetCursorPrefix(selectedIndex, 0)}Perfect Judge(ms): {state.PerfectJudge}",
+            $"{GetCursorPrefix(selectedIndex, 1)}Miss Judge(ms): {state.MissJudge}",
+            $"{GetCursorPrefix(selectedIndex, 2)}Note Speed(ms): {state.NoteSpeed}",
+            $"{GetCursorPrefix(selectedIndex, 3)}BPM: {state.Bpm}",
+            $"{GetCursorPrefix(selectedIndex, 4)}FPS: {state.Fps}",
+            $"{GetCursorPrefix(selectedIndex, 5)}Resolution Width: {state.ResolutionWidth}",
+            $"{GetCursorPrefix(selectedIndex, 6)}Resolution Height: {state.ResolutionHeight}",
+            string.Empty,
+            "Up/Down: 커서 이동, Left/Right: 값 변경, Esc: 로비 복귀"
+        ];
+
+        ConsoleUi.FitWindowToContent(lines);
+        ConsoleUi.RenderFrame(lines);
     }
 
     private static string GetCursorPrefix(int selectedIndex, int rowIndex)
@@ -83,6 +90,12 @@ internal static class Settings
                 }
 
                 state.Fps = fpsOptions[currentIndex];
+                break;
+            case 5:
+                state.ResolutionWidth = Math.Clamp(state.ResolutionWidth + delta * 10, 40, 160);
+                break;
+            case 6:
+                state.ResolutionHeight = Math.Clamp(state.ResolutionHeight + delta * 2, 10, 48);
                 break;
         }
     }

@@ -4,8 +4,13 @@ internal static class Entry
 {
     public static void Run()
     {
-        Console.Clear();
-        Console.WriteLine("Press Any Key To Start");
+        string[] lines =
+        [
+            "Press Any Key To Start"
+        ];
+
+        ConsoleUi.FitWindowToContent(lines);
+        ConsoleUi.RenderFrame(lines);
         Console.ReadKey(intercept: true);
     }
 }

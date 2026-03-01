@@ -34,12 +34,17 @@ internal static class Lobby
 
     private static void Render(int selectedIndex)
     {
-        Console.Clear();
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 0)}Game Start");
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 1)}Settings");
-        Console.WriteLine($"{GetCursorPrefix(selectedIndex, 2)}Exit");
-        Console.WriteLine();
-        Console.WriteLine("Up/Down: 커서 이동, Enter: 선택");
+        string[] lines =
+        [
+            $"{GetCursorPrefix(selectedIndex, 0)}Game Start",
+            $"{GetCursorPrefix(selectedIndex, 1)}Settings",
+            $"{GetCursorPrefix(selectedIndex, 2)}Exit",
+            string.Empty,
+            "Up/Down: 커서 이동, Enter: 선택"
+        ];
+
+        ConsoleUi.FitWindowToContent(lines);
+        ConsoleUi.RenderFrame(lines);
     }
 
     private static string GetCursorPrefix(int selectedIndex, int rowIndex)
@@ -58,8 +63,9 @@ internal static class Lobby
                 Settings.Run(state);
                 return false;
             case 2:
-                Console.Clear();
-                Console.WriteLine("게임을 종료합니다.");
+                string[] exitLines = ["게임을 종료합니다."];
+                ConsoleUi.FitWindowToContent(exitLines);
+                ConsoleUi.RenderFrame(exitLines);
                 return true;
             default:
                 return false;
